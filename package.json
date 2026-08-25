@@ -1,6 +1,6 @@
 {
   "name": "opendisplay-studio-cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Local development CLI for OpenDisplay Studio widgets",
   "license": "MIT",
   "type": "module",
