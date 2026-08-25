@@ -32,30 +32,22 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
   app.get("/", async (_req, res) => {
     try {
       const project = await loadProject(projectRoot);
-      const cards = await Promise.all(project.preview.spans.map(async (span) => {
+      const cards = project.preview.spans.map((span) => {
         const size = regionSize(project.preview, span.columns, span.rows);
-        const fragment = await renderWidget(
-          project.template,
-          project.widget,
-          project.preview,
-          project.fixture,
-          span.columns,
-          span.rows,
-        );
         return `<article class="preview-card">
           <header><strong>${span.columns}×${span.rows}</strong><span>${size.width}×${size.height}px</span></header>
-          <div class="scale-box"><iframe title="${span.columns}x${span.rows}" src="/preview/${span.columns}/${span.rows}"></iframe></div>
+          <div class="preview-viewport"><iframe title="${span.columns}x${span.rows}" src="/preview/${span.columns}/${span.rows}" style="width:${size.width}px;height:${size.height}px"></iframe></div>
         </article>`;
-      }));
+      });
 
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
       <title>${escapeHtml(project.widget.name)} · OpenDisplay Studio</title>
       <style>
-        *{box-sizing:border-box} body{margin:0;background:#111;color:#eee;font:14px system-ui,sans-serif} header.top{padding:18px 24px;border-bottom:1px solid #333;position:sticky;top:0;background:#111;z-index:2}.meta{opacity:.65;margin-top:4px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:20px;padding:24px}.preview-card{background:#1b1b1b;border:1px solid #333;border-radius:10px;padding:12px}.preview-card>header{display:flex;justify-content:space-between;margin-bottom:10px}.preview-card>header span{opacity:.65}.scale-box{background:#2b2b2b;padding:14px;overflow:auto;min-height:200px}.scale-box iframe{border:0;display:block;transform-origin:top left;max-width:none;background:white;width:100%;height:320px}
-      </style></head><body><header class="top"><strong>${escapeHtml(project.widget.name)}</strong><div class="meta">${project.preview.display.name} · ${project.preview.display.width}×${project.preview.display.height} · grid ${project.preview.display.columns}×${project.preview.display.rows} · Framework ${project.widget.framework}</div></header><main class="grid">${cards.join("")}</main>
+        *{box-sizing:border-box}body{margin:0;background:#111;color:#eee;font:14px system-ui,sans-serif}header.top{padding:18px 24px;border-bottom:1px solid #333;position:sticky;top:0;background:#111;z-index:2}.meta{opacity:.65;margin-top:4px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;padding:24px}.preview-card{min-width:0;background:#1b1b1b;border:1px solid #333;border-radius:10px;padding:12px}.preview-card>header{display:flex;justify-content:space-between;margin-bottom:10px}.preview-card>header span{opacity:.65}.preview-viewport{background:#2b2b2b;padding:14px;overflow:auto}.preview-viewport iframe{border:0;display:block;max-width:none;background:white}
+      </style></head><body><header class="top"><strong>${escapeHtml(project.widget.name)}</strong><div class="meta">${escapeHtml(project.preview.display.name)} · ${project.preview.display.width}×${project.preview.display.height} · grid ${project.preview.display.columns}×${project.preview.display.rows} · Framework ${escapeHtml(project.widget.framework)}</div></header><main class="grid">${cards.join("")}</main>
       <script>const es=new EventSource('/events');let first=true;es.addEventListener('ready',()=>{if(first){first=false;return;}location.reload()});es.addEventListener('reload',()=>location.reload());</script></body></html>`);
     } catch (error) {
-      res.status(500).type("html").send(`<pre style="white-space:pre-wrap;color:#b00020">${escapeHtml(error instanceof Error ? error.stack ?? error.message : error)}</pre>`);
+      res.status(500).type("html").send(`<pre style="white-space:pre-wrap;color:#ff8080">${escapeHtml(error instanceof Error ? error.stack ?? error.message : error)}</pre>`);
     }
   });
 
@@ -71,7 +63,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
       <style>html,body{margin:0;width:${size.width}px;height:${size.height}px;overflow:hidden;background:#fff}.od-region{width:100%;height:100%;overflow:hidden;container-type:size}.od-region>.item{width:100%!important;height:100%!important;margin:0!important}</style></head>
       <body><section class="screen screen--md screen--1bit" style="width:${size.width}px;height:${size.height}px"><div class="od-region">${fragment}</div></section>
-      <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
+      <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{await document.fonts.ready;if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
     } catch (error) {
       res.status(500).type("text").send(error instanceof Error ? error.stack ?? error.message : String(error));
     }
