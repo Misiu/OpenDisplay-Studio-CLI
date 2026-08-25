@@ -1,4 +1,4 @@
-import { mkdir, writeFile, access } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 const widgetYaml = (id: string, name: string) => `id: ${id}
@@ -20,9 +20,11 @@ dataRequirements: []
 `;
 
 const previewYaml = `display:
-  name: 7.5 inch 800x480
-  width: 800
-  height: 480
+  # Device dimensions and supported palettes are resolved by the official TRMNL Picker.
+  model: waveshare_7_5_bw
+  palette: bw
+
+  # OpenDisplay grid. Spans below are interpreted inside this grid on the selected device.
   columns: 4
   rows: 2
 
