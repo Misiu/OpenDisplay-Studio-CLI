@@ -40,11 +40,33 @@ function partialRegionClasses(screenClasses: string[], width: number, height: nu
     (item) => !["screen--sm", "screen--md", "screen--lg", "screen--portrait"].includes(item),
   );
 
-  // For partial regions orientation follows the region's real pixel aspect ratio,
-  // not the orientation of the physical display that contains it.
+  // OpenDisplay responsiveness is based on the region's real pixel viewport.
+  // Do not reuse the size class of the physical device for a smaller region.
   if (height > width) classes.push("screen--portrait");
 
   return Array.from(new Set(["screen", ...classes]));
+}
+
+function gridOverlay(
+  width: number,
+  height: number,
+  columns: number,
+  rows: number,
+  gap: number,
+) {
+  if (gap <= 0) return "";
+
+  const cellWidth = (width - gap * (columns + 1)) / columns;
+  const cellHeight = (height - gap * (rows + 1)) / rows;
+  const vertical = Array.from({ length: Math.max(0, columns - 1) }, (_, index) => {
+    const x = gap + (index + 1) * cellWidth + (index + 0.5) * gap;
+    return `<i class="od-grid-line od-grid-line--v" style="left:${x}px"></i>`;
+  }).join("");
+  const horizontal = Array.from({ length: Math.max(0, rows - 1) }, (_, index) => {
+    const y = gap + (index + 1) * cellHeight + (index + 0.5) * gap;
+    return `<i class="od-grid-line od-grid-line--h" style="top:${y}px"></i>`;
+  }).join("");
+  return vertical + horizontal;
 }
 
 export async function serveProject(root = process.cwd(), port = 7341, shouldOpen = true) {
@@ -70,7 +92,10 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       const project = await loadProject(projectRoot);
       const cards = project.preview.spans.map((span, index) => `
         <article class="preview-card" data-preview-card data-columns="${span.columns}" data-rows="${span.rows}" data-index="${index}">
-          <header><strong>${span.columns}×${span.rows}</strong><span data-size-label>—</span></header>
+          <header>
+            <div><strong>${span.columns}×${span.rows}</strong><span class="preview-note">responsive region</span></div>
+            <span data-size-label>—</span>
+          </header>
           <div class="preview-surface" data-preview-surface>
             <div class="preview-stage" data-preview-stage>
               <iframe data-preview-frame title="${span.columns}x${span.rows}"></iframe>
@@ -97,12 +122,12 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
       <title>${escapeHtml(project.widget.name)} · OpenDisplay Studio</title>
       <style>
-        *{box-sizing:border-box} :root{color-scheme:dark} body{margin:0;background:#111;color:#eee;font:14px system-ui,-apple-system,Segoe UI,sans-serif}
+        *{box-sizing:border-box}:root{color-scheme:dark}body{margin:0;background:#111;color:#eee;font:14px system-ui,-apple-system,Segoe UI,sans-serif}
         .top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:16px 20px;border-bottom:1px solid #303030;position:sticky;top:0;background:#111;z-index:5}.title{font-weight:700}.meta{opacity:.62;margin-top:3px;font-size:12px}
-        .controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:1200px}.control{display:grid;gap:3px}.control>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.55}.control select,.control input,.control button{height:31px;border:1px solid #444;border-radius:6px;background:#1c1c1c;color:#eee;padding:0 8px;font:12px inherit}.control select{min-width:145px}.control.fixture select{min-width:160px}.control.small select,.control.small input{min-width:68px;width:78px}.segmented{display:flex;border:1px solid #444;border-radius:6px;overflow:hidden;height:31px}.segmented button{border:0;border-right:1px solid #444;border-radius:0;height:29px;background:#1c1c1c;color:#aaa;padding:0 10px}.segmented button:last-child{border-right:0}.segmented button.active{background:#eee;color:#111}
-        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:18px;padding:20px}.preview-card{min-width:0;background:#191919;border:1px solid #343434;border-radius:10px;padding:10px}.preview-card[hidden]{display:none}.preview-card>header{display:flex;justify-content:space-between;margin-bottom:8px}.preview-card>header span{opacity:.6;font-variant-numeric:tabular-nums}.preview-surface{height:350px;display:flex;align-items:center;justify-content:center;background:#292929;border-radius:4px;overflow:hidden;padding:10px}.preview-stage{position:relative;flex:none}.preview-stage iframe{position:absolute;left:0;top:0;border:0;background:white;transform-origin:top left;max-width:none}
+        .controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:1200px}.control{display:grid;gap:3px}.control>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.55}.control select,.control input,.control button{height:31px;border:1px solid #444;border-radius:6px;background:#1c1c1c;color:#eee;padding:0 8px;font:12px inherit}.control select{min-width:145px}.control.fixture select{min-width:160px}.control.small input{min-width:68px;width:78px}.segmented{display:flex;border:1px solid #444;border-radius:6px;overflow:hidden;height:31px}.segmented button{border:0;border-radius:0;height:29px;background:#1c1c1c;color:#aaa;padding:0 10px}.segmented button.active{background:#eee;color:#111}
+        .preview-list{display:grid;grid-template-columns:1fr;gap:26px;padding:24px;max-width:1120px;margin:0 auto}.preview-card{min-width:0;background:#191919;border:1px solid #343434;border-radius:10px;padding:12px}.preview-card[hidden]{display:none}.preview-card>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.preview-card>header>span{opacity:.65;font-variant-numeric:tabular-nums}.preview-note{margin-left:9px;font-size:11px;font-weight:400;opacity:.45}.preview-surface{height:540px;display:flex;align-items:center;justify-content:center;background:#292929;border-radius:5px;overflow:hidden;padding:16px}.preview-stage{position:relative;flex:none;box-shadow:0 1px 8px #0008}.preview-stage iframe{position:absolute;left:0;top:0;border:0;background:white;transform-origin:top left;max-width:none}
         .error{margin:20px;padding:14px;border:1px solid #8b3030;background:#2b1616;color:#ffb1b1;border-radius:8px;white-space:pre-wrap}
-        @media(max-width:900px){.top{position:static;display:block}.controls{justify-content:flex-start;margin-top:12px}.grid{grid-template-columns:1fr}}
+        @media(max-width:900px){.top{position:static;display:block}.controls{justify-content:flex-start;margin-top:12px}.preview-list{padding:12px}.preview-surface{height:390px}}
       </style></head><body>
       <header class="top"><div><div class="title">${escapeHtml(project.widget.name)}</div><div class="meta"><span data-device-summary>Loading device…</span> · grid <span data-grid-summary>${config.columns}×${config.rows}</span> · Framework ${escapeHtml(project.widget.framework)}</div></div>
       <form id="picker-form" class="controls">
@@ -118,7 +143,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         <label class="control small"><span>Grid rows</span><input id="grid-rows" type="number" min="1" max="12" value="${config.rows}"></label>
         <div class="control"><span>&nbsp;</span><button type="button" data-reset-button>Reset</button></div>
       </form></header>
-      <main class="grid">${cards}</main>
+      <main class="preview-list">${cards}</main>
       <script>window.__ODSTUDIO_CONFIG__=${safeJson(config)};</script>
       <script type="module">
         import TRMNLPicker from '/vendor/trmnl-picker/trmnl-picker.esm.js';
@@ -137,27 +162,27 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         const gridValue=(input,fallback)=>{const n=Number(input.value);return Number.isInteger(n)&&n>=1&&n<=12?n:fallback};
         const regionSize=(width,height,columns,rows)=>{
           const gc=gridValue(gridColumns,cfg.columns),gr=gridValue(gridRows,cfg.rows);
-          if(columns===gc&&rows===gr) return {width,height,gap:0,gc,gr};
+          if(columns===gc&&rows===gr)return{width,height,gap:0,gc,gr};
           const gap=cfg.gap??clamp(Math.round(Math.min(width,height)/60),3,10);
           const cellWidth=(width-gap*(gc+1))/gc,cellHeight=(height-gap*(gr+1))/gr;
-          return {width:Math.round(cellWidth*columns+gap*(columns-1)),height:Math.round(cellHeight*rows+gap*(rows-1)),gap,gc,gr};
+          return{width:Math.round(cellWidth*columns+gap*(columns-1)),height:Math.round(cellHeight*rows+gap*(rows-1)),gap,gc,gr};
         };
         const extraClasses=()=>{
           const result=[];
-          if(colorMode.value==='preview') result.push('screen--preview-colors');
-          if(fontFamily.value==='classic') result.push('screen--fonts-classic');
-          if(fontFamily.value==='trmnl') result.push('screen--fonts-trmnl');
-          if(textScale.value!=='regular') result.push('screen--text-scale-'+textScale.value);
+          if(colorMode.value==='preview')result.push('screen--preview-colors');
+          if(fontFamily.value==='classic')result.push('screen--fonts-classic');
+          if(fontFamily.value==='trmnl')result.push('screen--fonts-trmnl');
+          if(textScale.value!=='regular')result.push('screen--text-scale-'+textScale.value);
           return result;
         };
-        const fitCard=(card,width,height)=>{
+        const fitCard=(card,deviceWidth,deviceHeight)=>{
           const surface=card.querySelector('[data-preview-surface]');
           const stage=card.querySelector('[data-preview-stage]');
           const frame=card.querySelector('[data-preview-frame]');
-          const availableWidth=Math.max(1,surface.clientWidth-20),availableHeight=Math.max(1,surface.clientHeight-20);
-          const scale=Math.min(1,availableWidth/width,availableHeight/height);
-          stage.style.width=(width*scale)+'px';stage.style.height=(height*scale)+'px';
-          frame.style.width=width+'px';frame.style.height=height+'px';frame.style.transform='scale('+scale+')';
+          const availableWidth=Math.max(1,surface.clientWidth-32),availableHeight=Math.max(1,surface.clientHeight-32);
+          const scale=Math.min(1,availableWidth/deviceWidth,availableHeight/deviceHeight);
+          stage.style.width=(deviceWidth*scale)+'px';stage.style.height=(deviceHeight*scale)+'px';
+          frame.style.width=deviceWidth+'px';frame.style.height=deviceHeight+'px';frame.style.transform='scale('+scale+')';
         };
         const refresh=()=>{
           if(!picker)return;
@@ -168,23 +193,23 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
           const classes=[...state.screenClasses,...extraClasses()];
           for(const card of cards){
             const columns=Number(card.dataset.columns),rows=Number(card.dataset.rows);
-            if(columns>gc||rows>gr){card.hidden=true;continue} card.hidden=false;
+            if(columns>gc||rows>gr){card.hidden=true;continue}card.hidden=false;
             const size=regionSize(state.width,state.height,columns,rows);
-            card.querySelector('[data-size-label]').textContent=size.width+'×'+size.height+'px';
+            card.querySelector('[data-size-label]').textContent='region '+size.width+'×'+size.height+'px · device '+state.width+'×'+state.height+'px';
             const frame=card.querySelector('[data-preview-frame]');
             const params=new URLSearchParams({dw:String(state.width),dh:String(state.height),gc:String(gc),gr:String(gr),screen_classes:classes.join(' '),model:state.model.name,palette:state.palette.id,fixture:fixtureSelect.value});
             frame.src='/preview/'+columns+'/'+rows+'?'+params;
-            fitCard(card,size.width,size.height);
+            fitCard(card,state.width,state.height);
           }
         };
-        form.addEventListener('trmnl:change',()=>refresh());
-        for(const el of [fixtureSelect,colorMode,fontFamily,textScale,gridColumns,gridRows]) el.addEventListener('change',refresh);
+        form.addEventListener('trmnl:change',refresh);
+        for(const el of [fixtureSelect,colorMode,fontFamily,textScale,gridColumns,gridRows])el.addEventListener('change',refresh);
         window.addEventListener('resize',refresh);
         const pickerKey='odstudio-picker:'+cfg.widgetId;
         const seedKey='odstudio-preview-seeded:'+cfg.widgetId;
         const fixtureKey='odstudio-fixture:'+cfg.widgetId;
         const savedFixture=localStorage.getItem(fixtureKey);
-        if(savedFixture&&cfg.fixtures.includes(savedFixture)) fixtureSelect.value=savedFixture;
+        if(savedFixture&&cfg.fixtures.includes(savedFixture))fixtureSelect.value=savedFixture;
         fixtureSelect.addEventListener('change',()=>localStorage.setItem(fixtureKey,fixtureSelect.value));
         picker=await TRMNLPicker.create(form,{localStorageKey:pickerKey});
         if(!localStorage.getItem(seedKey)){
@@ -192,7 +217,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
           localStorage.setItem(seedKey,'1');
         }
         refresh();
-        const es=new EventSource('/events');let first=true;es.addEventListener('ready',()=>{if(first){first=false;return;}location.reload()});es.addEventListener('reload',()=>location.reload());
+        const es=new EventSource('/events');let first=true;es.addEventListener('ready',()=>{if(first){first=false;return}location.reload()});es.addEventListener('reload',()=>location.reload());
       </script></body></html>`);
     } catch (error) {
       res.status(500).type("html").send(`<pre class="error">${escapeHtml(error instanceof Error ? error.stack ?? error.message : error)}</pre>`);
@@ -240,9 +265,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
   </head>
   <body class="environment trmnl">
     <div class="${escapeHtml(fullClasses)}">
-      <div class="view view--full">
-        ${fragment}
-      </div>
+      <div class="view view--full">${fragment}</div>
     </div>
     <script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script>
   </body>
@@ -252,15 +275,25 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
 
       const regionClasses = partialRegionClasses(screenClasses, size.width, size.height).join(" ");
       const ratio = size.width / Math.max(1, size.height);
-      res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
+      const gap = size.gap;
+      const cellWidth = (viewportWidth - gap * (gridColumns + 1)) / gridColumns;
+      const cellHeight = (viewportHeight - gap * (gridRows + 1)) / gridRows;
+      const left = gap;
+      const top = gap;
+      const overlay = gridOverlay(viewportWidth, viewportHeight, gridColumns, gridRows, gap);
+      const dark = screenClasses.includes("screen--dark-mode");
+
+      res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${viewportWidth},initial-scale=1">
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
       <style>
-        html,body{margin:0;width:${size.width}px;height:${size.height}px;overflow:hidden;background:#fff}
-        .screen.od-region-screen{--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
+        html,body{margin:0;width:${viewportWidth}px;height:${viewportHeight}px;overflow:hidden;background:${dark ? "#000" : "#fff"}}
+        .od-device-canvas{position:relative;width:${viewportWidth}px;height:${viewportHeight}px;overflow:hidden;background:${dark ? "#000" : "#fff"};box-shadow:inset 0 0 0 1px rgba(128,128,128,.22)}
+        .od-grid-line{position:absolute;display:block;pointer-events:none;z-index:1;opacity:.28}.od-grid-line--v{top:0;bottom:0;border-left:1px dashed #888}.od-grid-line--h{left:0;right:0;border-top:1px dashed #888}
+        .screen.od-region-screen{position:absolute!important;left:${left}px!important;top:${top}px!important;z-index:2;--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
         .od-region{width:100%;height:100%;overflow:hidden;container-type:size;container-name:od-region;--od-region-width:${size.width};--od-region-height:${size.height};--od-region-aspect-ratio:${ratio}}
         .od-region>.item{width:100%!important;height:100%!important;margin:0!important}
       </style></head>
-      <body class="environment trmnl"><section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section>
+      <body class="environment trmnl"><div class="od-device-canvas">${overlay}<section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section></div>
       <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
     } catch (error) {
       res.status(500).type("text").send(error instanceof Error ? error.stack ?? error.message : String(error));
