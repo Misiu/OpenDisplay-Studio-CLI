@@ -1,9 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
 
 const spanSchema = z.object({ columns: z.number().int().positive(), rows: z.number().int().positive() });
+const fixtureFilePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.(ya?ml|json)$/i;
 
 export const widgetSchema = z.object({
   id: z.string().min(1),
@@ -24,7 +25,6 @@ export const previewSchema = z.object({
     columns: z.number().int().positive().default(4),
     rows: z.number().int().positive().default(2),
     gap: z.number().int().nonnegative().optional(),
-    // Backward-compatible POC fields. Device dimensions now come from TRMNL Picker.
     name: z.string().optional(),
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
@@ -51,12 +51,27 @@ export interface PreviewViewport {
   screenClasses?: string[];
 }
 
-export async function loadProject(root: string) {
+export async function listFixtures(root: string) {
+  const entries = await readdir(join(root, "fixtures"), { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && fixtureFilePattern.test(entry.name))
+    .map((entry) => entry.name)
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export async function loadProject(root: string, fixtureOverride?: string) {
   const widget = widgetSchema.parse(YAML.parse(await readFile(join(root, "widget.yml"), "utf8")));
   const preview = previewSchema.parse(YAML.parse(await readFile(join(root, "preview.yml"), "utf8")));
   const template = await readFile(join(root, widget.template), "utf8");
-  const fixture = YAML.parse(await readFile(join(root, "fixtures", preview.fixture), "utf8")) ?? {};
-  return { widget, preview, template, fixture };
+  const fixtures = await listFixtures(root);
+  const fixtureName = fixtureOverride ?? preview.fixture;
+
+  if (!fixtureFilePattern.test(fixtureName) || !fixtures.includes(fixtureName)) {
+    throw new Error(`Fixture not found: ${fixtureName}`);
+  }
+
+  const fixture = YAML.parse(await readFile(join(root, "fixtures", fixtureName), "utf8")) ?? {};
+  return { widget, preview, template, fixture, fixtureName, fixtures };
 }
 
 export function defaultViewport(preview: PreviewConfig): PreviewViewport {
@@ -80,9 +95,6 @@ export function regionSizeForViewport(
     throw new Error(`Span ${columns}x${rows} exceeds ${d.columns}x${d.rows} grid`);
   }
 
-  // A widget spanning the complete OpenDisplay grid is a true full-screen view.
-  // Do not subtract dashboard gutters here: the TRMNL screen/view shell already owns
-  // its internal framework padding, and double-applying outer gaps breaks parity.
   if (columns === d.columns && rows === d.rows) {
     return { width: viewportWidth, height: viewportHeight, gap: 0 };
   }
