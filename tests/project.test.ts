@@ -6,8 +6,11 @@ describe("regionSize", () => {
     display: { name: "7.5", width: 800, height: 480, columns: 4, rows: 2, gap: 8 },
   });
 
-  it("matches Studio grid geometry", () => {
-    expect(regionSize(preview, 4, 2)).toEqual({ width: 784, height: 464, gap: 8 });
+  it("uses the full device viewport for a full-grid span", () => {
+    expect(regionSize(preview, 4, 2)).toEqual({ width: 800, height: 480, gap: 0 });
+  });
+
+  it("keeps configured dashboard gutters for partial spans", () => {
     expect(regionSize(preview, 2, 1)).toEqual({ width: 388, height: 228, gap: 8 });
     expect(regionSize(preview, 1, 1)).toEqual({ width: 190, height: 228, gap: 8 });
   });
