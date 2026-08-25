@@ -79,6 +79,14 @@ export function regionSizeForViewport(
   if (columns > d.columns || rows > d.rows) {
     throw new Error(`Span ${columns}x${rows} exceeds ${d.columns}x${d.rows} grid`);
   }
+
+  // A widget spanning the complete OpenDisplay grid is a true full-screen view.
+  // Do not subtract dashboard gutters here: the TRMNL screen/view shell already owns
+  // its internal framework padding, and double-applying outer gaps breaks parity.
+  if (columns === d.columns && rows === d.rows) {
+    return { width: viewportWidth, height: viewportHeight, gap: 0 };
+  }
+
   const gap = d.gap ?? Math.max(3, Math.min(10, Math.round(Math.min(viewportWidth, viewportHeight) / 60)));
   const cellWidth = (viewportWidth - gap * (d.columns + 1)) / d.columns;
   const cellHeight = (viewportHeight - gap * (d.rows + 1)) / d.rows;
