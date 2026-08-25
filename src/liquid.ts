@@ -1,6 +1,6 @@
 import { Liquid } from "liquidjs";
-import type { PreviewConfig, WidgetManifest } from "./project.js";
-import { regionSize } from "./project.js";
+import type { PreviewConfig, PreviewViewport, WidgetManifest } from "./project.js";
+import { defaultViewport, regionSizeForViewport } from "./project.js";
 
 const engine = new Liquid({
   dynamicPartials: true,
@@ -15,8 +15,9 @@ export async function renderWidget(
   fixture: Record<string, unknown>,
   columns: number,
   rows: number,
+  viewport: PreviewViewport = defaultViewport(preview),
 ) {
-  const size = regionSize(preview, columns, rows);
+  const size = regionSizeForViewport(preview, viewport.width, viewport.height, columns, rows);
   const ratio = size.width / Math.max(1, size.height);
   const shape = ratio >= 1.55 ? "wide" : ratio <= 0.72 ? "tall" : "square";
 
@@ -33,6 +34,13 @@ export async function renderWidget(
       aspectRatio: ratio,
       shape,
     },
-    display: preview.display,
+    display: {
+      ...preview.display,
+      width: viewport.width,
+      height: viewport.height,
+      model: viewport.model ?? preview.display.model,
+      palette: viewport.palette ?? preview.display.palette,
+      screenClasses: viewport.screenClasses ?? [],
+    },
   });
 }
