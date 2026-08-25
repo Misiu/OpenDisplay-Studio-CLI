@@ -24,7 +24,9 @@ const previewYaml = `display:
   model: waveshare_7_5_bw
   palette: bw
 
-  # OpenDisplay grid. Spans below are interpreted inside this grid on the selected device.
+  # The grid only defines the real pixel viewport available to a widget.
+  # Widget responsiveness should depend on region.width/height/aspectRatio,
+  # not on semantic names for these spans.
   columns: 4
   rows: 2
 
@@ -43,13 +45,20 @@ const template = `<div class="item">
   <div class="content layout layout--col gap--small">
     <span class="title">{{ config.title }}</span>
     <span class="description">{{ data.message }}</span>
-    <span class="label">{{ region.width }} × {{ region.height }} px</span>
+    <span class="label">State: {{ data.state }}</span>
+    <span class="label">{{ region.width }} × {{ region.height }} px · {{ region.shape }}</span>
   </div>
 </div>
 `;
 
-const fixture = `data:
+const defaultFixture = `data:
+  state: normal
   message: Edit widget.liquid and save to refresh every preview.
+`;
+
+const alternateFixture = `data:
+  state: alert
+  message: Alternate fixture for testing a different data state.
 `;
 
 export async function initProject(name: string, cwd = process.cwd()) {
@@ -67,6 +76,7 @@ export async function initProject(name: string, cwd = process.cwd()) {
   await writeFile(join(target, "widget.yml"), widgetYaml(id, name), "utf8");
   await writeFile(join(target, "preview.yml"), previewYaml, "utf8");
   await writeFile(join(target, "widget.liquid"), template, "utf8");
-  await writeFile(join(target, "fixtures", "default.yml"), fixture, "utf8");
+  await writeFile(join(target, "fixtures", "default.yml"), defaultFixture, "utf8");
+  await writeFile(join(target, "fixtures", "alternate.yml"), alternateFixture, "utf8");
   return target;
 }
