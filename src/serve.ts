@@ -63,6 +63,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         </article>`).join("");
 
       const config = {
+        widgetId: project.widget.id,
         framework: project.widget.framework,
         defaultModel: project.preview.display.model,
         defaultPalette: project.preview.display.palette,
@@ -112,6 +113,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         const gridValue=(input,fallback)=>{const n=Number(input.value);return Number.isInteger(n)&&n>=1&&n<=12?n:fallback};
         const regionSize=(width,height,columns,rows)=>{
           const gc=gridValue(gridColumns,cfg.columns),gr=gridValue(gridRows,cfg.rows);
+          if(columns===gc&&rows===gr) return {width,height,gap:0,gc,gr};
           const gap=cfg.gap??clamp(Math.round(Math.min(width,height)/60),3,10);
           const cellWidth=(width-gap*(gc+1))/gc,cellHeight=(height-gap*(gr+1))/gr;
           return {width:Math.round(cellWidth*columns+gap*(columns-1)),height:Math.round(cellHeight*rows+gap*(rows-1)),gap,gc,gr};
@@ -154,10 +156,12 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         form.addEventListener('trmnl:change',()=>refresh());
         for(const el of [colorMode,fontFamily,textScale,gridColumns,gridRows]) el.addEventListener('change',refresh);
         window.addEventListener('resize',refresh);
-        picker=await TRMNLPicker.create(form,{localStorageKey:'odstudio-picker'});
-        if(!localStorage.getItem('odstudio-preview-seeded')){
+        const pickerKey='odstudio-picker:'+cfg.widgetId;
+        const seedKey='odstudio-preview-seeded:'+cfg.widgetId;
+        picker=await TRMNLPicker.create(form,{localStorageKey:pickerKey});
+        if(!localStorage.getItem(seedKey)){
           picker.setParams({modelName:cfg.defaultModel,paletteId:cfg.defaultPalette,isPortrait:false,isDarkMode:false});
-          localStorage.setItem('odstudio-preview-seeded','1');
+          localStorage.setItem(seedKey,'1');
         }
         refresh();
         const es=new EventSource('/events');let first=true;es.addEventListener('ready',()=>{if(first){first=false;return;}location.reload()});es.addEventListener('reload',()=>location.reload());
@@ -192,6 +196,36 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       const fragment = await renderWidget(project.template, project.widget, activePreview, project.fixture, columns, rows, viewport);
       const version = encodeURIComponent(project.widget.framework);
       const classes = Array.from(new Set(["screen", ...screenClasses])).join(" ");
+      const isFullSpan = columns === gridColumns && rows === gridRows;
+
+      if (isFullSpan) {
+        // Match TRMNLP's render_html.erb shell for parity tests. The widget template
+        // contains only plugin markup; the dev server owns the screen/view wrappers.
+        res.type("html").send(`<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css" />
+    <script src="https://trmnl.com/js/${version}/plugins.js"></script>
+    <meta name="trmnl-framework-version" content="${escapeHtml(project.widget.framework)}" />
+    <meta name="trmnl-framework-pinned" content="true" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  </head>
+  <body class="environment trmnl">
+    <div class="${escapeHtml(classes)}">
+      <div class="view view--full">
+        ${fragment}
+      </div>
+    </div>
+    <script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script>
+  </body>
+</html>`);
+        return;
+      }
+
+      // Partial OpenDisplay regions are still experimental. Keep them isolated from
+      // the full-view TRMNL compatibility path until the region contract is finalized.
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
       <style>html,body{margin:0;width:${size.width}px;height:${size.height}px;overflow:hidden;background:#fff}.screen.od-region-screen{--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}.od-region{width:100%;height:100%;overflow:hidden;container-type:size}.od-region>.item{width:100%!important;height:100%!important;margin:0!important}</style></head>
