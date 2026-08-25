@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.odstudio/
+*.zip
+.DS_Store
