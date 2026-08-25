@@ -2,7 +2,7 @@
 
 Local development tooling for OpenDisplay Studio widgets.
 
-The intended workflow is similar to modern developer CLIs such as Wrangler: create a widget project, open it in VS Code, edit one Liquid template, see the widget refresh live in several real display/grid sizes, then build a distributable package.
+The intended workflow is similar to Wrangler/Vite: create a widget project, open it in VS Code, edit one Liquid template, see it refresh live on several region sizes and real device profiles, then build a distributable package.
 
 > **Status:** early POC. The CLI and package format are intentionally small while they become the shared contract for OpenDisplay Studio Integration and the future widget catalog.
 
@@ -12,8 +12,6 @@ The intended workflow is similar to modern developer CLIs such as Wrangler: crea
 - npm
 - a modern browser
 
-Check your Node.js installation:
-
 ```bash
 node --version
 npm --version
@@ -21,41 +19,25 @@ npm --version
 
 ## Install the current POC
 
-The POC currently lives on the `feature/initial-cli-poc` branch / PR #1 and is not published to npm yet.
-
-Clone it:
+The POC currently lives on `feature/initial-cli-poc` / PR #1 and is not published to npm yet.
 
 ```bash
 git clone https://github.com/Misiu/OpenDisplay-Studio-CLI.git
 cd OpenDisplay-Studio-CLI
 git checkout feature/initial-cli-poc
-```
-
-Install dependencies and build the CLI:
-
-```bash
 npm install
 npm run build
-```
-
-Link the local build globally so the `odstudio` command is available from any directory:
-
-```bash
 npm link
 ```
 
-Verify the installation:
+Verify:
 
 ```bash
 odstudio --version
 odstudio --help
 ```
 
-You should currently see version `0.1.0`.
-
-### Updating the local POC
-
-After pulling newer changes from the branch:
+After pulling newer changes:
 
 ```bash
 git pull
@@ -63,11 +45,9 @@ npm install
 npm run build
 ```
 
-Because `npm link` points at this checkout, you normally do not need to link it again.
+`npm link` normally does not need to be repeated.
 
-### Removing the local CLI link
-
-From the CLI repository directory:
+To remove the global link:
 
 ```bash
 npm unlink -g opendisplay-studio-cli
@@ -75,28 +55,23 @@ npm unlink -g opendisplay-studio-cli
 
 ## Quick start
 
-Create the widget somewhere **outside the CLI repository**:
+Create widgets outside the CLI repository:
 
 ```bash
 cd C:\Projects
 odstudio init my-widget
 cd my-widget
 code .
-```
-
-Start the development workbench:
-
-```bash
 odstudio serve
 ```
 
-The browser opens automatically at:
+The browser opens at:
 
 ```text
 http://127.0.0.1:7341
 ```
 
-Edit and save any of these files:
+Edit and save any of:
 
 ```text
 widget.liquid
@@ -105,31 +80,22 @@ preview.yml
 fixtures/*.yml
 ```
 
-The workbench detects the change and refreshes automatically.
+The workbench reloads automatically.
 
-When the widget is ready:
+When finished:
 
 ```bash
 odstudio publish
 ```
 
-The command validates the configured preview variants and creates a distributable folder and ZIP under `dist/`.
-
 ## Commands
 
 ### `odstudio init <name>`
 
-Creates a new widget project in the current directory.
-
-```bash
-odstudio init weather-card
-cd weather-card
-```
-
-Generated structure:
+Creates:
 
 ```text
-weather-card/
+my-widget/
   widget.yml
   widget.liquid
   preview.yml
@@ -137,61 +103,41 @@ weather-card/
     default.yml
 ```
 
-`widget.yml` and `widget.liquid` are runtime files.
-
-`preview.yml` and `fixtures/` exist only for local widget development and are not included in the published runtime package.
+`widget.yml` and `widget.liquid` are runtime files. `preview.yml` and `fixtures/` are development-only.
 
 ### `odstudio serve`
 
-Starts the live preview workbench.
+Starts the live workbench.
 
 ```bash
 odstudio serve
-```
-
-Use another port:
-
-```bash
 odstudio serve --port 8080
-```
-
-Start without automatically opening a browser:
-
-```bash
 odstudio serve --no-open
 ```
 
-The workbench renders the same `widget.liquid` template for every span declared in `preview.yml`.
+The workbench has two independent concepts:
 
-For the default 800x480 / 4x2 profile this includes:
+1. **Device profile** - selected with the official TRMNL Picker. It supplies the real device viewport, supported palettes, orientation, dark mode and Framework screen classes.
+2. **OpenDisplay grid** - configured as columns × rows. Widget spans are calculated inside that grid on the currently selected device.
 
-```text
-4x2
-2x2
-4x1
-2x1
-1x2
-1x1
-```
+This distinction is important. A `2x1` widget is not a fixed pixel size. It can be roughly half of an 800x480 display, half of a 10-inch display, or half of a small 4-inch display. Its actual region dimensions are recalculated whenever the device or orientation changes.
 
-The sizes are not aliases such as `full`, `half` or `quadrant`. They are actual `columnSpan x rowSpan` regions calculated from the selected display profile.
+The current workbench lets you change:
+
+- Device
+- Palette
+- Light/Dark mode
+- Landscape/Portrait
+- Raw/Preview color mode
+- Default/Classic/TRMNL font family
+- Text scale
+- OpenDisplay grid columns and rows
+
+Every configured span is shown simultaneously. Each preview iframe renders at its **real region pixel size**, then the workbench scales the iframe visually so the entire region fits in its card. The preview itself is never resized to a fake viewport.
 
 ### `odstudio publish`
 
-Validates the widget and builds the distributable package:
-
-```bash
-odstudio publish
-```
-
-Example output:
-
-```text
-Folder: ...\dist\my-widget
-ZIP:    ...\dist\my-widget-1.zip
-```
-
-Result:
+Validates Liquid and creates:
 
 ```text
 dist/
@@ -201,52 +147,9 @@ dist/
   my-widget-1.zip
 ```
 
-Development-only `preview.yml` and `fixtures/` are intentionally excluded.
+Development-only files are excluded.
 
-## First test walkthrough
-
-A useful first end-to-end test is:
-
-```bash
-odstudio init hello-widget
-cd hello-widget
-odstudio serve
-```
-
-Keep `serve` running and open `widget.liquid` in VS Code.
-
-Change:
-
-```liquid
-<span class="title">{{ config.title }}</span>
-```
-
-to something visibly different, save the file and verify that all preview variants refresh.
-
-Then change the display profile in `preview.yml`, for example from:
-
-```yaml
-display:
-  name: 7.5 inch 800x480
-  width: 800
-  height: 480
-  columns: 4
-  rows: 2
-```
-
-to another physical display/grid definition and verify that all region dimensions are recalculated.
-
-Finally run:
-
-```bash
-odstudio publish
-```
-
-and inspect the generated folder and ZIP.
-
-## Project files
-
-### `widget.yml`
+## `widget.yml`
 
 Runtime manifest consumed by OpenDisplay Studio.
 
@@ -268,32 +171,19 @@ fields:
 dataRequirements: []
 ```
 
-Important fields:
+The Framework version is pinned deliberately. A widget should not silently render against a newer Framework after it has been published.
 
-- `id` - stable widget identifier
-- `name` - display name
-- `version` - widget package version
-- `framework` - exact TRMNL Framework version used by the widget
-- `template` - Liquid template entry point
-- `defaults` - default widget configuration
-- `fields` - configuration UI schema used by OpenDisplay Studio
-- `dataRequirements` - normalized runtime data dependencies
-
-### `widget.liquid`
-
-The presentation template. The same file is rendered for all configured region sizes.
-
-The default generated widget is intentionally simple so it is easy to edit while testing the development loop.
-
-### `preview.yml`
+## `preview.yml`
 
 Local workbench configuration.
 
 ```yaml
 display:
-  name: 7.5 inch 800x480
-  width: 800
-  height: 480
+  # Defaults for the workbench. Device dimensions come from TRMNL Picker.
+  model: waveshare_7_5_bw
+  palette: bw
+
+  # OpenDisplay grid for this development scenario.
   columns: 4
   rows: 2
 
@@ -308,28 +198,26 @@ spans:
   - { columns: 1, rows: 1 }
 ```
 
-This is intentionally display-independent. A 2.6-inch display can use a 2x2 grid while an 800x480 display uses 4x2, and a larger display may use 6x4 or another layout.
+Do **not** duplicate known device dimensions in this file. The selected TRMNL device profile is the source of truth for physical rendering properties.
 
-The widget itself does not need separate `full.liquid`, `half.liquid` and `quadrant.liquid` templates.
+Changing the grid in the browser is a preview override. Changing `preview.yml` changes the project's defaults.
 
-### `fixtures/default.yml`
+## Device-aware rendering
 
-Sample configuration and normalized data used only by the workbench.
+The workbench uses the same `@trmnl/picker` package used by TRMNL's own local `trmnlp` developer server.
 
-Fixtures let a widget developer reproduce states such as:
+The picker supplies device-specific `screenClasses`. These carry more information than width and height, including device density, UI scale, palette/bit-depth behavior and dark/orientation state.
+
+For a widget region, OpenDisplay keeps those device rendering characteristics but overrides the Framework screen width/height with the **actual region viewport**. This prevents a `1x1` widget on an 800x480 screen from incorrectly laying itself out as if it still had the whole 800x480 canvas.
+
+The grid geometry follows the same model as OpenDisplay Studio:
 
 ```text
-normal
-empty
-loading-like data
-many calendar events
-long text
-missing optional values
+cell width  = (device width  - gap * (columns + 1)) / columns
+cell height = (device height - gap * (rows + 1)) / rows
 ```
 
-without requiring a running Home Assistant instance.
-
-More fixtures and fixture switching in the workbench are planned after the initial development loop is validated.
+A span then combines the relevant cells plus internal gaps.
 
 ## Liquid context
 
@@ -350,10 +238,14 @@ region.rowSpan
 region.aspectRatio
 region.shape
 
-display.*
+display.width
+display.height
+display.model
+display.palette
+display.screenClasses
 ```
 
-For example:
+Example:
 
 ```liquid
 {% if region.width < 250 %}
@@ -363,78 +255,49 @@ For example:
 {% endif %}
 ```
 
-CSS container queries are also encouraged for purely visual/responsive changes because each preview region is a CSS container.
+Use CSS container queries for purely visual adaptation when possible. Each widget region is a CSS container.
 
 ## TRMNL Framework
 
-The framework version is pinned in `widget.yml`:
-
-```yaml
-framework: 3.2.0
-```
-
-The current POC loads the matching immutable versioned TRMNL assets while serving previews:
+The POC currently loads the exact Framework version pinned by the widget:
 
 ```text
 https://trmnl.com/css/3.2.0/plugins.css
 https://trmnl.com/js/3.2.0/plugins.js
 ```
 
-This means the first POC currently needs Internet access while previewing.
+TRMNL publishes immutable versioned releases. A follow-up will cache the official Framework release ZIP and font bundles locally so development works offline after the first download.
 
-The next step is to cache the official versioned TRMNL Framework ZIP plus font bundles locally. That will make `odstudio serve` fully offline after the first download without changing the widget project format.
-
-## Development of the CLI itself
-
-Run TypeScript directly while modifying the CLI:
+## Developing the CLI
 
 ```bash
 npm run dev -- --help
-```
-
-Run tests and type checking:
-
-```bash
 npm run check
-```
-
-Build JavaScript into `dist/`:
-
-```bash
 npm run build
-```
-
-Run tests only:
-
-```bash
 npm test
 ```
 
 ## Current limitations
 
-This is the first POC. In particular:
-
-- framework/font assets are not cached locally yet
-- only one fixture is selected by `preview.yml`
-- preview diagnostics do not yet report overflow
-- preview does not yet generate PNG snapshots
-- the CLI does not connect to Home Assistant; fixtures provide normalized development data
-- full `trmnl-liquid` custom-filter/tag compatibility is still being implemented separately
-
-These are deliberate next steps rather than responsibilities that should be hidden inside the first project format.
+- Framework/font release assets are not cached locally yet.
+- Theme selection is not exposed yet; it will be populated from the pinned Framework release rather than hardcoded.
+- Only one fixture is selected by `preview.yml`.
+- Overflow diagnostics are not implemented yet.
+- PNG snapshot rendering is not implemented yet.
+- The CLI does not connect to Home Assistant; fixtures provide normalized development data.
+- Full `trmnl-liquid` custom filter/tag compatibility is being implemented separately.
 
 ## Architecture
-
-The CLI owns the developer workflow:
 
 ```text
 widget project
     -> Liquid + fixture data
-    -> live workbench
+    -> TRMNL device profile + OpenDisplay grid
+    -> live multi-size workbench
     -> validation
     -> distributable widget package
 ```
 
-It does **not** own Home Assistant providers. OpenDisplay Studio Integration supplies real entity/calendar/etc. data at runtime using the same normalized data contract represented by fixtures.
+The CLI does not own Home Assistant providers. OpenDisplay Studio Integration supplies real entity/calendar/etc. data at runtime using the same normalized contract represented by fixtures.
 
-It also should not become a second independent production renderer. Pixel-exact PNG validation will eventually use the same OpenDisplay Studio Renderer used by the Integration.
+Pixel-exact PNG validation should eventually call the same OpenDisplay Studio Renderer used by the Integration rather than introducing a second production renderer inside the CLI.
