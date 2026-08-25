@@ -5,7 +5,7 @@ import { publishProject } from "./publish.js";
 import { serveProject } from "./serve.js";
 
 const program = new Command();
-program.name("odstudio").description("OpenDisplay Studio widget development CLI").version("0.1.2");
+program.name("odstudio").description("OpenDisplay Studio widget development CLI").version("0.1.3");
 
 program.command("init")
   .argument("<name>", "widget/project name")
