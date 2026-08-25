@@ -25,10 +25,26 @@ function intParam(value: unknown, fallback: number, min = 1, max = 4096) {
   return Number.isInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
 }
 
+function stringParam(value: unknown) {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 function safeClasses(value: unknown) {
   return String(value ?? "")
     .split(/\s+/)
     .filter((item) => /^[a-zA-Z0-9_-]+$/.test(item));
+}
+
+function partialRegionClasses(screenClasses: string[], width: number, height: number) {
+  const classes = screenClasses.filter(
+    (item) => !["screen--sm", "screen--md", "screen--lg", "screen--portrait"].includes(item),
+  );
+
+  // For partial regions orientation follows the region's real pixel aspect ratio,
+  // not the orientation of the physical display that contains it.
+  if (height > width) classes.push("screen--portrait");
+
+  return Array.from(new Set(["screen", ...classes]));
 }
 
 export async function serveProject(root = process.cwd(), port = 7341, shouldOpen = true) {
@@ -62,11 +78,17 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
           </div>
         </article>`).join("");
 
+      const fixtureOptions = project.fixtures
+        .map((name) => `<option value="${escapeHtml(name)}"${name === project.fixtureName ? " selected" : ""}>${escapeHtml(name)}</option>`)
+        .join("");
+
       const config = {
         widgetId: project.widget.id,
         framework: project.widget.framework,
         defaultModel: project.preview.display.model,
         defaultPalette: project.preview.display.palette,
+        defaultFixture: project.fixtureName,
+        fixtures: project.fixtures,
         columns: project.preview.display.columns,
         rows: project.preview.display.rows,
         gap: project.preview.display.gap ?? null,
@@ -77,13 +99,14 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       <style>
         *{box-sizing:border-box} :root{color-scheme:dark} body{margin:0;background:#111;color:#eee;font:14px system-ui,-apple-system,Segoe UI,sans-serif}
         .top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:16px 20px;border-bottom:1px solid #303030;position:sticky;top:0;background:#111;z-index:5}.title{font-weight:700}.meta{opacity:.62;margin-top:3px;font-size:12px}
-        .controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:1000px}.control{display:grid;gap:3px}.control>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.55}.control select,.control input,.control button{height:31px;border:1px solid #444;border-radius:6px;background:#1c1c1c;color:#eee;padding:0 8px;font:12px inherit}.control select{min-width:145px}.control.small select,.control.small input{min-width:68px;width:78px}.segmented{display:flex;border:1px solid #444;border-radius:6px;overflow:hidden;height:31px}.segmented button{border:0;border-right:1px solid #444;border-radius:0;height:29px;background:#1c1c1c;color:#aaa;padding:0 10px}.segmented button:last-child{border-right:0}.segmented button.active{background:#eee;color:#111}
+        .controls{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;max-width:1200px}.control{display:grid;gap:3px}.control>span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.55}.control select,.control input,.control button{height:31px;border:1px solid #444;border-radius:6px;background:#1c1c1c;color:#eee;padding:0 8px;font:12px inherit}.control select{min-width:145px}.control.fixture select{min-width:160px}.control.small select,.control.small input{min-width:68px;width:78px}.segmented{display:flex;border:1px solid #444;border-radius:6px;overflow:hidden;height:31px}.segmented button{border:0;border-right:1px solid #444;border-radius:0;height:29px;background:#1c1c1c;color:#aaa;padding:0 10px}.segmented button:last-child{border-right:0}.segmented button.active{background:#eee;color:#111}
         .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:18px;padding:20px}.preview-card{min-width:0;background:#191919;border:1px solid #343434;border-radius:10px;padding:10px}.preview-card[hidden]{display:none}.preview-card>header{display:flex;justify-content:space-between;margin-bottom:8px}.preview-card>header span{opacity:.6;font-variant-numeric:tabular-nums}.preview-surface{height:350px;display:flex;align-items:center;justify-content:center;background:#292929;border-radius:4px;overflow:hidden;padding:10px}.preview-stage{position:relative;flex:none}.preview-stage iframe{position:absolute;left:0;top:0;border:0;background:white;transform-origin:top left;max-width:none}
         .error{margin:20px;padding:14px;border:1px solid #8b3030;background:#2b1616;color:#ffb1b1;border-radius:8px;white-space:pre-wrap}
         @media(max-width:900px){.top{position:static;display:block}.controls{justify-content:flex-start;margin-top:12px}.grid{grid-template-columns:1fr}}
       </style></head><body>
       <header class="top"><div><div class="title">${escapeHtml(project.widget.name)}</div><div class="meta"><span data-device-summary>Loading device…</span> · grid <span data-grid-summary>${config.columns}×${config.rows}</span> · Framework ${escapeHtml(project.widget.framework)}</div></div>
       <form id="picker-form" class="controls">
+        <label class="control fixture"><span>Fixture</span><select id="fixture-select">${fixtureOptions}</select></label>
         <label class="control"><span>Device</span><select data-model-select></select></label>
         <label class="control"><span>Palette</span><select data-palette-select></select></label>
         <div class="control"><span>Theme</span><div class="segmented"><button type="button" data-dark-mode-toggle><span data-dark-mode-text>Light</span></button></div></div>
@@ -101,6 +124,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         import TRMNLPicker from '/vendor/trmnl-picker/trmnl-picker.esm.js';
         const cfg=window.__ODSTUDIO_CONFIG__;
         const form=document.getElementById('picker-form');
+        const fixtureSelect=document.getElementById('fixture-select');
         const colorMode=document.getElementById('color-mode');
         const fontFamily=document.getElementById('font-family');
         const textScale=document.getElementById('text-scale');
@@ -148,16 +172,20 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
             const size=regionSize(state.width,state.height,columns,rows);
             card.querySelector('[data-size-label]').textContent=size.width+'×'+size.height+'px';
             const frame=card.querySelector('[data-preview-frame]');
-            const params=new URLSearchParams({dw:String(state.width),dh:String(state.height),gc:String(gc),gr:String(gr),screen_classes:classes.join(' '),model:state.model.name,palette:state.palette.id});
+            const params=new URLSearchParams({dw:String(state.width),dh:String(state.height),gc:String(gc),gr:String(gr),screen_classes:classes.join(' '),model:state.model.name,palette:state.palette.id,fixture:fixtureSelect.value});
             frame.src='/preview/'+columns+'/'+rows+'?'+params;
             fitCard(card,size.width,size.height);
           }
         };
         form.addEventListener('trmnl:change',()=>refresh());
-        for(const el of [colorMode,fontFamily,textScale,gridColumns,gridRows]) el.addEventListener('change',refresh);
+        for(const el of [fixtureSelect,colorMode,fontFamily,textScale,gridColumns,gridRows]) el.addEventListener('change',refresh);
         window.addEventListener('resize',refresh);
         const pickerKey='odstudio-picker:'+cfg.widgetId;
         const seedKey='odstudio-preview-seeded:'+cfg.widgetId;
+        const fixtureKey='odstudio-fixture:'+cfg.widgetId;
+        const savedFixture=localStorage.getItem(fixtureKey);
+        if(savedFixture&&cfg.fixtures.includes(savedFixture)) fixtureSelect.value=savedFixture;
+        fixtureSelect.addEventListener('change',()=>localStorage.setItem(fixtureKey,fixtureSelect.value));
         picker=await TRMNLPicker.create(form,{localStorageKey:pickerKey});
         if(!localStorage.getItem(seedKey)){
           picker.setParams({modelName:cfg.defaultModel,paletteId:cfg.defaultPalette,isPortrait:false,isDarkMode:false});
@@ -173,7 +201,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
 
   app.get("/preview/:columns/:rows", async (req, res) => {
     try {
-      const project = await loadProject(projectRoot);
+      const project = await loadProject(projectRoot, stringParam(req.query.fixture));
       const columns = intParam(req.params.columns, 1, 1, 12);
       const rows = intParam(req.params.rows, 1, 1, 12);
       const viewportWidth = intParam(req.query.dw, project.preview.display.width ?? 800);
@@ -195,12 +223,10 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       };
       const fragment = await renderWidget(project.template, project.widget, activePreview, project.fixture, columns, rows, viewport);
       const version = encodeURIComponent(project.widget.framework);
-      const classes = Array.from(new Set(["screen", ...screenClasses])).join(" ");
+      const fullClasses = Array.from(new Set(["screen", ...screenClasses])).join(" ");
       const isFullSpan = columns === gridColumns && rows === gridRows;
 
       if (isFullSpan) {
-        // Match TRMNLP's render_html.erb shell for parity tests. The widget template
-        // contains only plugin markup; the dev server owns the screen/view wrappers.
         res.type("html").send(`<!DOCTYPE html>
 <html>
   <head>
@@ -213,7 +239,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   </head>
   <body class="environment trmnl">
-    <div class="${escapeHtml(classes)}">
+    <div class="${escapeHtml(fullClasses)}">
       <div class="view view--full">
         ${fragment}
       </div>
@@ -224,12 +250,17 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         return;
       }
 
-      // Partial OpenDisplay regions are still experimental. Keep them isolated from
-      // the full-view TRMNL compatibility path until the region contract is finalized.
+      const regionClasses = partialRegionClasses(screenClasses, size.width, size.height).join(" ");
+      const ratio = size.width / Math.max(1, size.height);
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
-      <style>html,body{margin:0;width:${size.width}px;height:${size.height}px;overflow:hidden;background:#fff}.screen.od-region-screen{--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}.od-region{width:100%;height:100%;overflow:hidden;container-type:size}.od-region>.item{width:100%!important;height:100%!important;margin:0!important}</style></head>
-      <body><section class="${escapeHtml(classes)} od-region-screen"><div class="od-region">${fragment}</div></section>
+      <style>
+        html,body{margin:0;width:${size.width}px;height:${size.height}px;overflow:hidden;background:#fff}
+        .screen.od-region-screen{--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
+        .od-region{width:100%;height:100%;overflow:hidden;container-type:size;container-name:od-region;--od-region-width:${size.width};--od-region-height:${size.height};--od-region-aspect-ratio:${ratio}}
+        .od-region>.item{width:100%!important;height:100%!important;margin:0!important}
+      </style></head>
+      <body class="environment trmnl"><section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section>
       <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
     } catch (error) {
       res.status(500).type("text").send(error instanceof Error ? error.stack ?? error.message : String(error));
