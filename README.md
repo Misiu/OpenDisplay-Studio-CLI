@@ -21,6 +21,10 @@ npm --version
 
 The POC is developed on `main` and is not published to npm yet.
 
+Widget templates are validated with the pinned LiquidJS engine from
+`package.json`; the integration runs the same templates through a cross-engine
+conformance suite before release.
+
 ```bash
 git clone https://github.com/Misiu/OpenDisplay-Studio-CLI.git
 cd OpenDisplay-Studio-CLI
