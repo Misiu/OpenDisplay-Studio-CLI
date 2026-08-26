@@ -35,42 +35,9 @@ function safeClasses(value: unknown) {
     .filter((item) => /^[a-zA-Z0-9_-]+$/.test(item));
 }
 
-function partialRegionClasses(screenClasses: string[], width: number, height: number) {
-  const classes = screenClasses.filter(
-    (item) => !["screen--sm", "screen--md", "screen--lg", "screen--portrait"].includes(item),
-  );
-
-  // OpenDisplay responsiveness is based on the region's real pixel viewport.
-  // Do not reuse the size class of the physical device for a smaller region.
-  if (height > width) classes.push("screen--portrait");
-
-  return Array.from(new Set(["screen", ...classes]));
-}
-
-function gridOverlay(
-  width: number,
-  height: number,
-  columns: number,
-  rows: number,
-  gap: number,
-) {
-  if (gap <= 0) return "";
-
-  const cellWidth = (width - gap * (columns + 1)) / columns;
-  const cellHeight = (height - gap * (rows + 1)) / rows;
-  const vertical = Array.from({ length: Math.max(0, columns - 1) }, (_, index) => {
-    const x = gap + (index + 1) * cellWidth + (index + 0.5) * gap;
-    return `<i class="od-grid-line od-grid-line--v" style="left:${x}px"></i>`;
-  }).join("");
-  const horizontal = Array.from({ length: Math.max(0, rows - 1) }, (_, index) => {
-    const y = gap + (index + 1) * cellHeight + (index + 0.5) * gap;
-    return `<i class="od-grid-line od-grid-line--h" style="top:${y}px"></i>`;
-  }).join("");
-  return vertical + horizontal;
-}
-
 export async function serveProject(root = process.cwd(), port = 7341, shouldOpen = true) {
   const projectRoot = resolve(root);
+  const initialProject = await loadProject(projectRoot);
   const app = express();
   const clients = new Set<express.Response>();
   let revision = 0;
@@ -175,14 +142,14 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
           if(textScale.value!=='regular')result.push('screen--text-scale-'+textScale.value);
           return result;
         };
-        const fitCard=(card,deviceWidth,deviceHeight)=>{
+        const fitCard=(card,regionWidth,regionHeight)=>{
           const surface=card.querySelector('[data-preview-surface]');
           const stage=card.querySelector('[data-preview-stage]');
           const frame=card.querySelector('[data-preview-frame]');
           const availableWidth=Math.max(1,surface.clientWidth-32),availableHeight=Math.max(1,surface.clientHeight-32);
-          const scale=Math.min(1,availableWidth/deviceWidth,availableHeight/deviceHeight);
-          stage.style.width=(deviceWidth*scale)+'px';stage.style.height=(deviceHeight*scale)+'px';
-          frame.style.width=deviceWidth+'px';frame.style.height=deviceHeight+'px';frame.style.transform='scale('+scale+')';
+          const scale=Math.min(1,availableWidth/regionWidth,availableHeight/regionHeight);
+          stage.style.width=(regionWidth*scale)+'px';stage.style.height=(regionHeight*scale)+'px';
+          frame.style.width=regionWidth+'px';frame.style.height=regionHeight+'px';frame.style.transform='scale('+scale+')';
         };
         const refresh=()=>{
           if(!picker)return;
@@ -190,7 +157,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
           const gc=gridValue(gridColumns,cfg.columns),gr=gridValue(gridRows,cfg.rows);
           document.querySelector('[data-grid-summary]').textContent=gc+'×'+gr;
           document.querySelector('[data-device-summary]').textContent=(state.model.label||state.model.name)+' · '+state.width+'×'+state.height+' · '+state.palette.name;
-          const classes=[...state.screenClasses,...extraClasses()];
+          const classes=[...state.screenClasses.filter(item=>!item.startsWith('screen--fonts-')),...extraClasses()];
           for(const card of cards){
             const columns=Number(card.dataset.columns),rows=Number(card.dataset.rows);
             if(columns>gc||rows>gr){card.hidden=true;continue}card.hidden=false;
@@ -199,7 +166,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
             const frame=card.querySelector('[data-preview-frame]');
             const params=new URLSearchParams({dw:String(state.width),dh:String(state.height),gc:String(gc),gr:String(gr),screen_classes:classes.join(' '),model:state.model.name,palette:state.palette.id,fixture:fixtureSelect.value});
             frame.src='/preview/'+columns+'/'+rows+'?'+params;
-            fitCard(card,state.width,state.height);
+            fitCard(card,size.width,size.height);
           }
         };
         form.addEventListener('trmnl:change',refresh);
@@ -246,12 +213,25 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         palette: String(req.query.palette ?? project.preview.display.palette),
         screenClasses,
       };
-      const fragment = await renderWidget(project.template, project.widget, activePreview, project.fixture, columns, rows, viewport);
       const version = encodeURIComponent(project.widget.framework);
       const fullClasses = Array.from(new Set(["screen", ...screenClasses])).join(" ");
       const isFullSpan = columns === gridColumns && rows === gridRows;
+      // Framework screen classes describe the physical device. The widget's
+      // container reacts independently to the calculated region viewport.
+      const regionClasses = fullClasses;
+      const regionViewport = { ...viewport, screenClasses: regionClasses.split(" ") };
+      const fragment = await renderWidget(
+        project.template,
+        project.widget,
+        activePreview,
+        project.fixture,
+        columns,
+        rows,
+        regionViewport,
+      );
 
       if (isFullSpan) {
+        const dark = screenClasses.includes("screen--dark-mode");
         res.type("html").send(`<!DOCTYPE html>
 <html>
   <head>
@@ -262,9 +242,13 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <style>
+      html,body{margin:0!important;min-width:0!important;min-height:0!important;width:${size.width}px!important;height:${size.height}px!important;overflow:hidden!important;background:${dark ? "#000" : "#fff"}}
+      .screen.od-full-screen{--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
+    </style>
   </head>
   <body class="environment trmnl">
-    <div class="${escapeHtml(fullClasses)}">
+    <div class="${escapeHtml(fullClasses)} od-full-screen">
       <div class="view view--full">${fragment}</div>
     </div>
     <script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script>
@@ -273,27 +257,18 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         return;
       }
 
-      const regionClasses = partialRegionClasses(screenClasses, size.width, size.height).join(" ");
       const ratio = size.width / Math.max(1, size.height);
-      const gap = size.gap;
-      const cellWidth = (viewportWidth - gap * (gridColumns + 1)) / gridColumns;
-      const cellHeight = (viewportHeight - gap * (gridRows + 1)) / gridRows;
-      const left = gap;
-      const top = gap;
-      const overlay = gridOverlay(viewportWidth, viewportHeight, gridColumns, gridRows, gap);
       const dark = screenClasses.includes("screen--dark-mode");
 
-      res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${viewportWidth},initial-scale=1">
+      res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
       <style>
-        html,body{margin:0;width:${viewportWidth}px;height:${viewportHeight}px;overflow:hidden;background:${dark ? "#000" : "#fff"}}
-        .od-device-canvas{position:relative;width:${viewportWidth}px;height:${viewportHeight}px;overflow:hidden;background:${dark ? "#000" : "#fff"};box-shadow:inset 0 0 0 1px rgba(128,128,128,.22)}
-        .od-grid-line{position:absolute;display:block;pointer-events:none;z-index:1;opacity:.28}.od-grid-line--v{top:0;bottom:0;border-left:1px dashed #888}.od-grid-line--h{left:0;right:0;border-top:1px dashed #888}
-        .screen.od-region-screen{position:absolute!important;left:${left}px!important;top:${top}px!important;z-index:2;--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;--pixel-ratio:1!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
+        html,body{margin:0!important;min-width:0!important;min-height:0!important;width:${size.width}px!important;height:${size.height}px!important;overflow:hidden!important;background:${dark ? "#000" : "#fff"}}
+        .screen.od-region-screen{position:relative!important;--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
         .od-region{width:100%;height:100%;overflow:hidden;container-type:size;container-name:od-region;--od-region-width:${size.width};--od-region-height:${size.height};--od-region-aspect-ratio:${ratio}}
         .od-region>.item{width:100%!important;height:100%!important;margin:0!important}
       </style></head>
-      <body class="environment trmnl"><div class="od-device-canvas">${overlay}<section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section></div>
+      <body class="environment trmnl"><section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section>
       <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
     } catch (error) {
       res.status(500).type("text").send(error instanceof Error ? error.stack ?? error.message : String(error));
@@ -306,7 +281,10 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
     if (shouldOpen) void open(url);
   });
 
-  const watcher = watch(["widget.yml", "preview.yml", "*.liquid", "fixtures/**/*"], { cwd: projectRoot, ignoreInitial: true });
+  const watcher = watch(
+    ["widget.yml", "preview.yml", initialProject.widget.template, "fixtures"],
+    { cwd: projectRoot, ignoreInitial: true },
+  );
   watcher.on("all", (_event, path) => {
     revision += 1;
     console.log(`Changed: ${path}`);
@@ -320,5 +298,5 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
   };
   process.once("SIGINT", () => void close().then(() => process.exit(0)));
   process.once("SIGTERM", () => void close().then(() => process.exit(0)));
-  return { server, close };
+  return { server, close, watcher };
 }
