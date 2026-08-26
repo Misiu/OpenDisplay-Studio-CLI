@@ -46,6 +46,10 @@ describe("preview viewport", () => {
 
       const partial = await (await fetch(`${base}/preview/2/1?${query}`)).text();
       expect(partial).toContain("width:388px!important;height:228px!important");
+      expect(partial).toContain("--screen-w:800px!important;--screen-h:480px!important");
+      expect(partial).toContain("/css/3.2.0/plugins.min.css");
+      expect(partial).toContain("/js/3.2.0/plugins.min.js");
+      expect(partial).toContain("Image assets failed to load");
       expect(partial).toContain('class="screen screen--md screen--1x od-region-screen"');
       expect(partial).not.toContain("od-device-canvas");
 

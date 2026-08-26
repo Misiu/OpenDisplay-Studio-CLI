@@ -19,12 +19,11 @@ npm --version
 
 ## Install the current POC
 
-The POC currently lives on `feature/initial-cli-poc` / PR #1 and is not published to npm yet.
+The POC is developed on `main` and is not published to npm yet.
 
 ```bash
 git clone https://github.com/Misiu/OpenDisplay-Studio-CLI.git
 cd OpenDisplay-Studio-CLI
-git checkout feature/initial-cli-poc
 npm install
 npm run build
 npm link
@@ -262,11 +261,15 @@ Use CSS container queries for purely visual adaptation when possible. Each widge
 The POC currently loads the exact Framework version pinned by the widget:
 
 ```text
-https://trmnl.com/css/3.2.0/plugins.css
-https://trmnl.com/js/3.2.0/plugins.js
+https://trmnl.com/css/3.2.0/plugins.min.css
+https://trmnl.com/js/3.2.0/plugins.min.js
 ```
 
-TRMNL publishes immutable versioned releases. A follow-up will cache the official Framework release ZIP and font bundles locally so development works offline after the first download.
+The preview uses the same production/minified Framework artifact variant as the
+Renderer App. The physical device dimensions remain in `--screen-w` and
+`--screen-h`; an independent size container controls responsive widget layout.
+A follow-up will cache the official Framework release ZIP and font bundles
+locally so development works offline after the first download.
 
 ## Developing the CLI
 
@@ -281,8 +284,8 @@ npm test
 
 - Framework/font release assets are not cached locally yet.
 - Theme selection is not exposed yet; it will be populated from the pinned Framework release rather than hardcoded.
-- Only one fixture is selected by `preview.yml`.
-- Overflow diagnostics are not implemented yet.
+- Fixture files can be switched from the preview toolbar.
+- Missing image assets fail visibly; general overflow diagnostics are not implemented yet.
 - PNG snapshot rendering is not implemented yet.
 - The CLI does not connect to Home Assistant; fixtures provide normalized development data.
 - Full `trmnl-liquid` custom filter/tag compatibility is being implemented separately.
