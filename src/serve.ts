@@ -235,8 +235,8 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         res.type("html").send(`<!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css" />
-    <script src="https://trmnl.com/js/${version}/plugins.js"></script>
+    <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.min.css" />
+    <script src="https://trmnl.com/js/${version}/plugins.min.js"></script>
     <meta name="trmnl-framework-version" content="${escapeHtml(project.widget.framework)}" />
     <meta name="trmnl-framework-pinned" content="true" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -251,7 +251,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
     <div class="${escapeHtml(fullClasses)} od-full-screen">
       <div class="view view--full">${fragment}</div>
     </div>
-    <script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script>
+    <script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();const failed=[...document.images].filter(image=>image.naturalWidth===0||image.naturalHeight===0).map(image=>image.currentSrc||image.src);if(failed.length){const message='Image assets failed to load: '+failed.join(', ');console.error(message);const error=document.createElement('pre');error.className='error';error.textContent=message;document.body.replaceChildren(error);}});</script>
   </body>
 </html>`);
         return;
@@ -261,15 +261,15 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
       const dark = screenClasses.includes("screen--dark-mode");
 
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
-      <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.css">
+      <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.min.css">
       <style>
         html,body{margin:0!important;min-width:0!important;min-height:0!important;width:${size.width}px!important;height:${size.height}px!important;overflow:hidden!important;background:${dark ? "#000" : "#fff"}}
-        .screen.od-region-screen{position:relative!important;--screen-w:${size.width}px!important;--screen-h:${size.height}px!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
+        .screen.od-region-screen{position:relative!important;--screen-w:${viewportWidth}px!important;--screen-h:${viewportHeight}px!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
         .od-region{width:100%;height:100%;overflow:hidden;container-type:size;container-name:od-region;--od-region-width:${size.width};--od-region-height:${size.height};--od-region-aspect-ratio:${ratio}}
         .od-region>.item{width:100%!important;height:100%!important;margin:0!important}
       </style></head>
       <body class="environment trmnl"><section class="${escapeHtml(regionClasses)} od-region-screen"><div class="od-region" data-region-width="${size.width}" data-region-height="${size.height}" data-region-aspect-ratio="${ratio}">${fragment}</div></section>
-      <script src="https://trmnl.com/js/${version}/plugins.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();});</script></body></html>`);
+      <script src="https://trmnl.com/js/${version}/plugins.min.js"></script><script>window.addEventListener('load',async()=>{if(typeof window.terminalize==='function')await window.terminalize();const failed=[...document.images].filter(image=>image.naturalWidth===0||image.naturalHeight===0).map(image=>image.currentSrc||image.src);if(failed.length){const message='Image assets failed to load: '+failed.join(', ');console.error(message);const error=document.createElement('pre');error.className='error';error.textContent=message;document.body.replaceChildren(error);}});</script></body></html>`);
     } catch (error) {
       res.status(500).type("text").send(error instanceof Error ? error.stack ?? error.message : String(error));
     }
