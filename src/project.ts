@@ -1,18 +1,22 @@
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
 
 const spanSchema = z.object({ columns: z.number().int().positive(), rows: z.number().int().positive() });
 const fixtureFilePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.(ya?ml|json)$/i;
+const semanticVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const widgetVersionSchema = z.string().regex(semanticVersionPattern);
 
 export const widgetSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  version: z.number().int().positive().default(1),
+  version: widgetVersionSchema.default("0.5.0"),
   description: z.string().default(""),
+  icon: z.string().default("mdi:puzzle-outline"),
   framework: z.string().default("3.2.0"),
   template: z.string().default("widget.liquid"),
+  provider: z.string().optional(),
   defaults: z.record(z.string(), z.unknown()).default({}),
   fields: z.array(z.record(z.string(), z.unknown())).default([]),
   dataRequirements: z.array(z.record(z.string(), z.unknown())).default([]),
@@ -43,6 +47,13 @@ export const previewSchema = z.object({
 export type WidgetManifest = z.infer<typeof widgetSchema>;
 export type PreviewConfig = z.infer<typeof previewSchema>;
 
+function rootFile(value: string, field: string): string {
+  if (!value || basename(value) !== value) {
+    throw new Error(`${field} must name a file in the widget root`);
+  }
+  return value;
+}
+
 export interface PreviewViewport {
   width: number;
   height: number;
@@ -61,8 +72,9 @@ export async function listFixtures(root: string) {
 
 export async function loadProject(root: string, fixtureOverride?: string) {
   const widget = widgetSchema.parse(YAML.parse(await readFile(join(root, "widget.yml"), "utf8")));
+  const templateFile = rootFile(widget.template, "template");
   const preview = previewSchema.parse(YAML.parse(await readFile(join(root, "preview.yml"), "utf8")));
-  const template = await readFile(join(root, widget.template), "utf8");
+  const template = await readFile(join(root, templateFile), "utf8");
   const fixtures = await listFixtures(root);
   const fixtureName = fixtureOverride ?? preview.fixture;
 

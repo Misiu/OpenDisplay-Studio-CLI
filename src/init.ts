@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 const widgetYaml = (id: string, name: string) => `id: ${id}
 name: ${name}
-version: 1
+version: "0.5.0"
 description: Example OpenDisplay Studio widget
 framework: 3.2.0
 template: widget.liquid

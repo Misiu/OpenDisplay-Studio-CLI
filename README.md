@@ -159,7 +159,7 @@ Runtime manifest consumed by OpenDisplay Studio.
 ```yaml
 id: my-widget
 name: My Widget
-version: 1
+version: "0.5.0"
 framework: 3.2.0
 template: widget.liquid
 

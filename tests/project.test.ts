@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { previewSchema, regionSize } from "../src/project.js";
+import { previewSchema, regionSize, widgetSchema } from "../src/project.js";
+
+describe("widget version", () => {
+  it("accepts semver and rejects numeric versions", () => {
+    expect(widgetSchema.parse({ id: "demo", name: "Demo", version: "0.5.0" }).version)
+      .toBe("0.5.0");
+    expect(() => widgetSchema.parse({ id: "demo", name: "Demo", version: 4 }))
+      .toThrow();
+  });
+});
 
 describe("regionSize", () => {
   const preview = previewSchema.parse({
