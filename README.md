@@ -81,6 +81,7 @@ widget.liquid
 widget.yml
 preview.yml
 fixtures/*.yml
+assets/**/*
 ```
 
 The workbench reloads automatically.
@@ -102,11 +103,13 @@ my-widget/
   widget.yml
   widget.liquid
   preview.yml
+  assets/
   fixtures/
     default.yml
 ```
 
-`widget.yml` and `widget.liquid` are runtime files. `preview.yml` and `fixtures/` are development-only.
+`widget.yml`, `widget.liquid`, and `assets/` are runtime files. `preview.yml`
+and `fixtures/` are development-only.
 
 ### `odstudio serve`
 
@@ -147,6 +150,7 @@ dist/
   my-widget/
     widget.yml
     widget.liquid
+    assets/
   my-widget-1.zip
 ```
 
@@ -159,9 +163,15 @@ Runtime manifest consumed by OpenDisplay Studio.
 ```yaml
 id: my-widget
 name: My Widget
-version: "0.5.0"
+version: "0.6.0"
 framework: 3.2.0
 template: widget.liquid
+
+# Optional. Omit this section for a local-only widget.
+permissions:
+  network:
+    allowedOrigins:
+      - https://cdn.example.com
 
 defaults:
   title: Hello OpenDisplay
@@ -260,6 +270,31 @@ Example:
 
 Use CSS container queries for purely visual adaptation when possible. Each widget region is a CSS container.
 
+## Local icons and assets
+
+The complete Material Design Icons 7.4.47 catalog is available in Liquid with
+local classes:
+
+```liquid
+<span class="mdi mdi-weather-rainy"></span>
+```
+
+Place widget-specific images or fonts below `assets/`. They are exposed to
+Liquid as base64 data URIs by relative path, matching Home Assistant:
+
+```liquid
+<img src="{{ assets['icons/logo.svg'] }}" alt="">
+```
+
+Asset edits trigger live reload and `publish` includes the directory recursively.
+
+Widgets are local-only by default. If a widget intentionally needs remote
+images, fonts, or styles, declare each exact HTTP(S) origin under
+`permissions.network.allowedOrigins` in `widget.yml`. Origins cannot contain a
+path, credentials, query, or fragment. `serve` and `publish` reject undeclared
+remote asset references; Home Assistant applies the same contract and gives the
+Renderer only the origins used by the current screen.
+
 ## TRMNL Framework
 
 The POC currently loads the exact Framework version pinned by the widget:
@@ -287,7 +322,6 @@ npm test
 ## Current limitations
 
 - Framework/font release assets are not cached locally yet.
-- Theme selection is not exposed yet; it will be populated from the pinned Framework release rather than hardcoded.
 - Fixture files can be switched from the preview toolbar.
 - Missing image assets fail visibly; general overflow diagnostics are not implemented yet.
 - PNG snapshot rendering is not implemented yet.

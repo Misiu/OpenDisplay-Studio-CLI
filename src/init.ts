@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 const widgetYaml = (id: string, name: string) => `id: ${id}
 name: ${name}
-version: "0.5.0"
+version: "0.6.0"
 description: Example OpenDisplay Studio widget
 framework: 3.2.0
 template: widget.liquid
@@ -73,6 +73,7 @@ export async function initProject(name: string, cwd = process.cwd()) {
   }
 
   await mkdir(join(target, "fixtures"), { recursive: true });
+  await mkdir(join(target, "assets"), { recursive: true });
   await writeFile(join(target, "widget.yml"), widgetYaml(id, name), "utf8");
   await writeFile(join(target, "preview.yml"), previewYaml, "utf8");
   await writeFile(join(target, "widget.liquid"), template, "utf8");

@@ -10,6 +10,32 @@ describe("widget version", () => {
   });
 });
 
+describe("widget network permissions", () => {
+  it("accepts explicit origins and defaults to local-only", () => {
+    expect(widgetSchema.parse({ id: "demo", name: "Demo" }).permissions)
+      .toEqual({ network: { allowedOrigins: [] } });
+    expect(widgetSchema.parse({
+      id: "remote",
+      name: "Remote",
+      permissions: { network: { allowedOrigins: ["https://cdn.example.com/"] } },
+    }).permissions.network.allowedOrigins).toEqual(["https://cdn.example.com"]);
+  });
+
+  it("rejects paths, credentials, and non-HTTP protocols", () => {
+    for (const origin of [
+      "https://example.com/path",
+      "https://user:pass@example.com",
+      "file:///tmp/assets",
+    ]) {
+      expect(() => widgetSchema.parse({
+        id: "invalid",
+        name: "Invalid",
+        permissions: { network: { allowedOrigins: [origin] } },
+      })).toThrow();
+    }
+  });
+});
+
 describe("regionSize", () => {
   const preview = previewSchema.parse({
     display: { name: "7.5", width: 800, height: 480, columns: 4, rows: 2, gap: 8 },

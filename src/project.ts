@@ -2,16 +2,34 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, join } from "node:path";
 import YAML from "yaml";
 import { z } from "zod";
+import { loadAssetDataUris } from "./assets.js";
 
 const spanSchema = z.object({ columns: z.number().int().positive(), rows: z.number().int().positive() });
 const fixtureFilePattern = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.(ya?ml|json)$/i;
 const semanticVersionPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const widgetVersionSchema = z.string().regex(semanticVersionPattern);
+const networkOriginSchema = z.string().refine((value) => {
+  try {
+    const url = new URL(value);
+    return (
+      ["http:", "https:"].includes(url.protocol)
+      && url.origin === value.replace(/\/$/, "")
+      && url.username === ""
+      && url.password === ""
+      && ["", "/"].includes(url.pathname)
+      && url.search === ""
+      && url.hash === ""
+    );
+  } catch {
+    return false;
+  }
+}, "Network permission must be an HTTP(S) origin without a path")
+  .transform((value) => new URL(value).origin);
 
 export const widgetSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  version: widgetVersionSchema.default("0.5.0"),
+  version: widgetVersionSchema.default("0.6.0"),
   description: z.string().default(""),
   icon: z.string().default("mdi:puzzle-outline"),
   framework: z.string().default("3.2.0"),
@@ -20,6 +38,11 @@ export const widgetSchema = z.object({
   defaults: z.record(z.string(), z.unknown()).default({}),
   fields: z.array(z.record(z.string(), z.unknown())).default([]),
   dataRequirements: z.array(z.record(z.string(), z.unknown())).default([]),
+  permissions: z.object({
+    network: z.object({
+      allowedOrigins: z.array(networkOriginSchema).max(16).default([]),
+    }).default({ allowedOrigins: [] }),
+  }).default({ network: { allowedOrigins: [] } }),
 });
 
 export const previewSchema = z.object({
@@ -82,8 +105,12 @@ export async function loadProject(root: string, fixtureOverride?: string) {
     throw new Error(`Fixture not found: ${fixtureName}`);
   }
 
-  const fixture = YAML.parse(await readFile(join(root, "fixtures", fixtureName), "utf8")) ?? {};
-  return { widget, preview, template, fixture, fixtureName, fixtures };
+  const [fixtureContent, assets] = await Promise.all([
+    readFile(join(root, "fixtures", fixtureName), "utf8"),
+    loadAssetDataUris(root),
+  ]);
+  const fixture = YAML.parse(fixtureContent) ?? {};
+  return { widget, preview, template, fixture, fixtureName, fixtures, assets };
 }
 
 export function defaultViewport(preview: PreviewConfig): PreviewViewport {

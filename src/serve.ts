@@ -3,10 +3,12 @@ import express from "express";
 import open from "open";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { validateRemoteAssetReferences } from "./assets.js";
 import { loadProject, regionSizeForViewport } from "./project.js";
 import { renderWidget } from "./liquid.js";
 
 const PICKER_DIST = fileURLToPath(new URL("../node_modules/@trmnl/picker/dist/", import.meta.url));
+const MDI_DIST = fileURLToPath(new URL("../node_modules/@mdi/font/", import.meta.url));
 
 function escapeHtml(value: unknown) {
   return String(value)
@@ -43,6 +45,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
   let revision = 0;
 
   app.use("/vendor/trmnl-picker", express.static(PICKER_DIST));
+  app.use("/vendor/mdi", express.static(MDI_DIST));
 
   app.get("/events", (_req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
@@ -228,6 +231,11 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
         columns,
         rows,
         regionViewport,
+        project.assets,
+      );
+      validateRemoteAssetReferences(
+        fragment,
+        project.widget.permissions.network.allowedOrigins,
       );
 
       if (isFullSpan) {
@@ -236,6 +244,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
 <html>
   <head>
     <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.min.css" />
+    <link rel="stylesheet" href="/vendor/mdi/css/materialdesignicons.min.css" />
     <script src="https://trmnl.com/js/${version}/plugins.min.js"></script>
     <meta name="trmnl-framework-version" content="${escapeHtml(project.widget.framework)}" />
     <meta name="trmnl-framework-pinned" content="true" />
@@ -262,6 +271,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
 
       res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=${size.width},initial-scale=1">
       <link rel="stylesheet" href="https://trmnl.com/css/${version}/plugins.min.css">
+      <link rel="stylesheet" href="/vendor/mdi/css/materialdesignicons.min.css">
       <style>
         html,body{margin:0!important;min-width:0!important;min-height:0!important;width:${size.width}px!important;height:${size.height}px!important;overflow:hidden!important;background:${dark ? "#000" : "#fff"}}
         .screen.od-region-screen{position:relative!important;--screen-w:${viewportWidth}px!important;--screen-h:${viewportHeight}px!important;width:${size.width}px!important;height:${size.height}px!important;padding:0!important;margin:0!important;transform:none!important;overflow:hidden!important}
@@ -282,7 +292,7 @@ export async function serveProject(root = process.cwd(), port = 7341, shouldOpen
   });
 
   const watcher = watch(
-    ["widget.yml", "preview.yml", initialProject.widget.template, "fixtures"],
+    ["widget.yml", "preview.yml", initialProject.widget.template, "fixtures", "assets"],
     { cwd: projectRoot, ignoreInitial: true },
   );
   watcher.on("all", (_event, path) => {

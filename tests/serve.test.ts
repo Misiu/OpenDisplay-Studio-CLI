@@ -14,6 +14,7 @@ async function createProject() {
   const root = await mkdtemp(join(tmpdir(), "odstudio-serve-"));
   temporaryProjects.push(root);
   await mkdir(join(root, "fixtures"));
+  await mkdir(join(root, "assets"));
   await Promise.all([
     writeFile(
       join(root, "widget.yml"),
@@ -25,6 +26,7 @@ async function createProject() {
     ),
     writeFile(join(root, "widget.liquid"), "<div>{{ region.width }}x{{ region.height }}</div>\n"),
     writeFile(join(root, "fixtures", "default.yml"), "data: {}\n"),
+    writeFile(join(root, "assets", "icon.svg"), "<svg></svg>\n"),
   ]);
   return root;
 }
@@ -49,6 +51,7 @@ describe("preview viewport", () => {
       expect(partial).toContain("--screen-w:800px!important;--screen-h:480px!important");
       expect(partial).toContain("/css/3.2.0/plugins.min.css");
       expect(partial).toContain("/js/3.2.0/plugins.min.js");
+      expect(partial).toContain("/vendor/mdi/css/materialdesignicons.min.css");
       expect(partial).toContain("Image assets failed to load");
       expect(partial).toContain('class="screen screen--md screen--1x od-region-screen"');
       expect(partial).not.toContain("od-device-canvas");
@@ -79,6 +82,25 @@ describe("preview viewport", () => {
       const result = await changed;
       expect(result.event).toBe("change");
       expect(result.path.replaceAll("\\", "/")).toBe("fixtures/default.yml");
+    } finally {
+      await preview.close();
+    }
+  });
+
+  it("watches widget assets for live reloads", async () => {
+    const root = await createProject();
+    const preview = await serveProject(root, 0, false);
+
+    try {
+      await new Promise<void>((resolve) => preview.watcher.once("ready", resolve));
+      const changed = new Promise<{ event: string; path: string }>((resolve) => {
+        preview.watcher.once("all", (event, path) => resolve({ event, path }));
+      });
+
+      await writeFile(join(root, "assets", "icon.svg"), "<svg><path/></svg>\n");
+      const result = await changed;
+      expect(result.event).toBe("change");
+      expect(result.path.replaceAll("\\", "/")).toBe("assets/icon.svg");
     } finally {
       await preview.close();
     }

@@ -20,7 +20,10 @@ template: widget.liquid
 provider: provider.py
 `);
   await writeFile(join(root, "preview.yml"), "display:\n  model: waveshare_7_5_bw\n  palette: bw\n  columns: 1\n  rows: 1\nfixture: default.yml\nspans:\n  - columns: 1\n    rows: 1\n");
-  await writeFile(join(root, "widget.liquid"), "<div>{{ data.value }}</div>");
+  await writeFile(
+    join(root, "widget.liquid"),
+    "<div><img src=\"{{ assets['icons/value.svg'] }}\">{{ data.value }}</div>",
+  );
   await writeFile(join(root, "provider.py"), "PROVIDER = object()\n");
   await writeFile(join(root, "translations", "en.json"), '{"value":"Value"}\n');
   await writeFile(join(root, "assets", "icons", "value.svg"), "<svg></svg>\n");

@@ -4,8 +4,8 @@ import { defaultViewport, regionSizeForViewport } from "./project.js";
 
 const engine = new Liquid({
   dynamicPartials: true,
-  strictFilters: true,
-  strictVariables: true,
+  strictFilters: false,
+  strictVariables: false,
 });
 
 export async function renderWidget(
@@ -16,6 +16,7 @@ export async function renderWidget(
   columns: number,
   rows: number,
   viewport: PreviewViewport = defaultViewport(preview),
+  assets: Record<string, string> = {},
 ) {
   const size = regionSizeForViewport(preview, viewport.width, viewport.height, columns, rows);
   const ratio = size.width / Math.max(1, size.height);
@@ -24,6 +25,7 @@ export async function renderWidget(
   return engine.parseAndRender(template, {
     config: widget.defaults,
     data: fixture.data ?? fixture,
+    assets,
     region: {
       width: size.width,
       height: size.height,

@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { strToU8, zipSync } from "fflate";
+import { validateRemoteAssetReferences } from "./assets.js";
 import { renderWidget } from "./liquid.js";
 import { loadProject } from "./project.js";
 
@@ -39,7 +40,20 @@ export async function publishProject(root = process.cwd()) {
   const project = await loadProject(projectRoot);
 
   for (const span of project.preview.spans) {
-    await renderWidget(project.template, project.widget, project.preview, project.fixture, span.columns, span.rows);
+    const html = await renderWidget(
+      project.template,
+      project.widget,
+      project.preview,
+      project.fixture,
+      span.columns,
+      span.rows,
+      undefined,
+      project.assets,
+    );
+    validateRemoteAssetReferences(
+      html,
+      project.widget.permissions.network.allowedOrigins,
+    );
   }
 
   const outRoot = join(projectRoot, "dist");

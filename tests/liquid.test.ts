@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { renderWidget } from "../src/liquid.js";
 import { previewSchema, widgetSchema } from "../src/project.js";
 
-describe("strict Liquid contract", () => {
+describe("TRMNL lax Liquid contract", () => {
   const widget = widgetSchema.parse({
     id: "weather-contract",
     name: "Weather contract",
@@ -11,14 +11,10 @@ describe("strict Liquid contract", () => {
     display: { columns: 1, rows: 1, width: 800, height: 480 },
   });
 
-  it("supports an explicit guard for an absent object property", async () => {
+  it("renders an absent nested property as an empty value", async () => {
     const template = `
       {% assign current = data.weather %}
-      {% if current contains 'forecast' %}
-        {% assign forecast = current.forecast %}
-      {% else %}
-        {% assign forecast = nil %}
-      {% endif %}
+      {% assign forecast = current.forecast %}
       {% if forecast != nil and forecast != empty %}forecast{% else %}current only{% endif %}
     `;
 
